@@ -4,8 +4,7 @@ t_log *logger;
 
 int iniciar_servidor(void)
 {
-	int socket_servidor;
-
+	int socket_servidor = -1;
 	struct addrinfo hints, *servinfo, *p;
 
 	memset(&hints, 0, sizeof(hints));
@@ -14,31 +13,43 @@ int iniciar_servidor(void)
 	hints.ai_flags = AI_PASSIVE;
 
 	int ga = getaddrinfo(NULL, PUERTO, &hints, &servinfo);
-	printf("Server getaddrinfo: %d\n", ga);
+	if (ga != 0)
+	{
+		printf("Error en getaddrinfo\n");
+		exit(EXIT_FAILURE);
+	}
 
 	for (p = servinfo; p != NULL; p = p->ai_next)
 	{
 		socket_servidor = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-		printf("socket_servidor: %d\n", socket_servidor);
-
 		if (socket_servidor == -1)
 		{
 			continue;
 		}
 
-		int b = bind(socket_servidor, p->ai_addr, p->ai_addrlen);
-		printf("resultado bind: %d\n", b);
-
-		if (b == 0)
+		if (bind(socket_servidor, p->ai_addr, p->ai_addrlen) == 0)
 		{
 			break;
 		}
 
 		close(socket_servidor);
+		socket_servidor = -1;
 	}
 
-	int l = listen(socket_servidor, SOMAXCONN);
-	printf("resultado listen: %d\n", l);
+	if (socket_servidor == -1)
+	{
+		printf("No se pudo hacer bind al puerto %s\n", PUERTO);
+		freeaddrinfo(servinfo);
+		exit(EXIT_FAILURE);
+	}
+
+	if (listen(socket_servidor, SOMAXCONN) == -1)
+	{
+		printf("Error en listen\n");
+		freeaddrinfo(servinfo);
+		close(socket_servidor);
+		exit(EXIT_FAILURE);
+	}
 
 	freeaddrinfo(servinfo);
 	log_trace(logger, "Listo para escuchar a mi cliente");
